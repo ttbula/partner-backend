@@ -26,45 +26,6 @@ app.get('/', (req,res) => {
     res.json('hello')
 })
 
-// app.post('/createaccount', async (req, res) => {
-//     const client = new MongoClient(MONGODB_URI)
-//     const { email, password } = req.body
-
-//     const generateUserId = uuidv4()
-//     const hashedpassword = await bcrypt.hash(password, 10)
-
-//     try {
-//         await client.connect()
-//         const database = client.db('partner-data')
-//         const users = database.collection('users')
-//         const existingUser = await users.findOne({email})
-
-//         if(existingUser) {
-//             return res.status(409).send('User exists. Try to login.')
-//         }
-
-//         const lower = email.toLowerCase()
-//         const data = {
-//             user_id: generateUserId,
-//             email: lower,
-//             hashed_password: hashedpassword
-//         }
-//         const insertUser = users.insertOne(data)
-//         const token = jwt.sign(insertUser, lower, {
-//             expiresIn: 60 * 24
-
-//         })
-
-//         res.status(201).json({ token, userId: generateUserId})
-
-//     } catch (error) {
-//         res.status(400).json(error);
-//     } finally {
-//         await client.close()
-//     }
-
-// })
-
 app.post('/signup', async (req, res) => {
     const client = new MongoClient(MONGODB_URI)
     const {email, password} = req.body
@@ -80,20 +41,20 @@ app.post('/signup', async (req, res) => {
         const existingUser = await users.findOne({email})
 
         if (existingUser) {
-            return res.status(409).send('User already exists. Please login')
+            return res.status(409).send('User exists. Proceed to login')
         }
 
-        const sanitizedEmail = email.toLowerCase()
+        const lowerEmail = email.toLowerCase()
 
         const data = {
             user_id: generatedUserId,
-            email: sanitizedEmail,
+            email: lowerEmail,
             hashed_password: hashedPassword
         }
 
         const insertedUser = await users.insertOne(data)
 
-        const token = jwt.sign(insertedUser, sanitizedEmail, {
+        const token = jwt.sign(insertedUser, lowerEmail, {
             expiresIn: 60 * 24
         })
         res.status(201).json({token, userId: generatedUserId})
@@ -105,6 +66,28 @@ app.post('/signup', async (req, res) => {
     }
 })
 
+app.post('/login', async (req,res) => {
+    const client = new MongoClient(MONGODB_URI)
+    const { email, password } = req.body
+
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const users = database.collection('users')
+        const user = await users.findOne({ email })
+        const rightPassword = await bcrypt.compare(password, user.hashed_password)
+
+        if(user && rightPassword) {
+            const token = jwt.sign(user, email, {
+                expiresIn: 60 * 24
+            })
+            res.status(201).json({ token, userId: user.user_id, email })
+        }
+        res.status(400).send('invalid credentials')
+    } catch (err){
+        console.log(err)
+    }
+})
 
 app.get('/users', async (req,res) => {
     const client = new MongoClient(MONGODB_URI)
