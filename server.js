@@ -81,7 +81,7 @@ app.post('/login', async (req,res) => {
             const token = jwt.sign(user, email, {
                 expiresIn: 60 * 24
             })
-            res.status(201).json({ token, userId: user.user_id, email })
+            res.status(201).json({ token, userId: user.user_id})
         }
         res.status(400).send('invalid credentials')
     } catch (err){
@@ -89,7 +89,7 @@ app.post('/login', async (req,res) => {
     }
 })
 
-app.get('/users', async (req,res) => {
+app.get('/user', async (req,res) => {
     const client = new MongoClient(MONGODB_URI)
 
     try {
@@ -100,6 +100,35 @@ app.get('/users', async (req,res) => {
         res.send(returnedUsers)
     } catch (error) {
         res.status(400).json(error);
+    }
+})
+
+app.put('/user', async (req, res) => {
+    const client = new MongoClient(MONGODB_URI)
+    const formData = req.body.formData
+
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const users = database.collection('users')
+
+        const query = { user_id: formData.user_id}
+        const update = {
+            $set: {
+                first_name: formData.first_name,
+                dob_day: formData.dob_day,
+                dob_month: formData.dob_month,
+                dob_year: formData.dob_year,
+                handicap: formData.handicap,
+                url: formData.url,
+                about: formData.about,
+                matches: formData.matches
+            },
+        }
+        const newUser = await users.updateOne(query, update)
+        res.send(update)
+    } finally {
+        await client.close()
     }
 })
 
