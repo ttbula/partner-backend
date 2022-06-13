@@ -2,7 +2,7 @@ require('dotenv').config()
 
 const { PORT = 4000, MONGODB_URI } = process.env
 const express = require("express")
-const { MongoClient } = require('mongodb')
+const { MongoClient, ListCollectionsCursor } = require('mongodb')
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require('uuid')
 const jwt = require('jsonwebtoken')
@@ -91,13 +91,89 @@ app.post('/login', async (req,res) => {
 
 app.get('/user', async (req,res) => {
     const client = new MongoClient(MONGODB_URI)
+    const userId = req.query.userId
+    
+    // console.log('userId', userId)
 
     try {
         await client.connect()
         const database = client.db('partner-data')
         const users = database.collection('users')
-        const returnedUsers = await users.find().toArray()
-        res.send(returnedUsers)
+
+        const query = { user_id: userId}
+        const user = await users.findOne(query)
+        res.send(user)
+    } finally {
+        await client.close()
+    }
+})
+
+app.put('/addmatch', async (req, res) => {
+    const client = new MongoClient(MONGODB_URI)
+    const {userId, matchedUserId} = req.body
+
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const users = database.collection('users')
+
+        const query = {user_id: userId}
+        const updateDocument = {
+            $push: {matches: {user_id: matchedUserId}}
+        }
+        const user = await users.updateOne(query, updateDocument)
+        res.send(user)
+    } finally {
+        await client.close()
+    }
+})
+
+app.get('/users', async (req,res) => {
+    const client = new MongoClient(MONGODB_URI)
+    const userIds = JSON.parse(req.query.userIds)
+
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const users = database.collection('users')
+
+        const pipeline = 
+            [
+                {
+                    '$match': {
+                        'user_id': {
+                            '$in': userIds
+                        }
+                    }
+                }
+            ]
+        const foundUsers = await users.aggregate(pipeline).toArray()
+        res.send(foundUsers)
+
+    } finally {
+        await client.close()
+    }
+})
+
+
+
+
+
+
+
+
+
+
+
+app.get('/allusers', async (req,res) => {
+    const client = new MongoClient(MONGODB_URI)
+
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const users = database.collection('users')
+        const allUsers= await users.find().toArray()
+        res.send(allUsers)
     } catch (error) {
         res.status(400).json(error);
     }
@@ -131,6 +207,27 @@ app.put('/user', async (req, res) => {
         await client.close()
     }
 })
+
+
+app.get('/messages', async () => {
+    const client = new MongoClient(MONGODB_URI)
+    const { userId, correspondingUserId} = req.query
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const messages = database.collection('chat')
+
+         const query = {
+             from_userId: userId, to_userId: correspondingUserId
+        }
+
+        const foundMessages = await messages.find(query).toArray()
+        res.send(foundMessages)
+    }finally {
+        await client.close()
+    }
+})
+
 
 
 // listener
