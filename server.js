@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 const { v4: uuidv4 } = require('uuid')
 const jwt = require('jsonwebtoken')
 const cors = require('cors')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcrypt');
 // const { MongoClient } = require
 const app = express();
 
@@ -209,9 +209,9 @@ app.put('/user', async (req, res) => {
 })
 
 
-app.get('/messages', async () => {
-    const client = new MongoClient(MONGODB_URI)
+app.get('/messages', async (req,res) => {
     const { userId, correspondingUserId} = req.query
+    const client = new MongoClient(MONGODB_URI)
     try {
         await client.connect()
         const database = client.db('partner-data')
@@ -228,6 +228,22 @@ app.get('/messages', async () => {
     }
 })
 
+
+
+app.post('/message', async (req,res) => {
+    const client = new MongoClient(MONGODB_URI)
+    const message = req.body.message
+
+    try {
+        await client.connect()
+        const database = client.db('partner-data')
+        const messages = database.collection('chat')
+        const insertedMessage = await messages.insertOne(message)
+        res.send(insertedMessage)
+    } finally {
+        await client.close()
+    }
+})
 
 
 // listener
